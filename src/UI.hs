@@ -6,7 +6,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
 import Data.Maybe (fromMaybe)
 
-import Snake
+import Bomberman
 
 import Brick
   ( App(..), AttrMap, BrickEvent(..), EventM, Next, Widget
@@ -42,7 +42,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Bomberman | Wall
+data Cell = Bomberman | Wall | BrickWall | Explosion | Bomb | Empty
 
 -- App definition
 
@@ -54,9 +54,25 @@ app = App { appDraw = drawUI
           , appAttrMap = const theMap
           }
 
+-- Handling events
+
+handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
+handleEvent g (AppEvent Tick)                       = continue $ step g
+handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ moveBomberman North g
+handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ moveBomberman South g
+handleEvent g (VtyEvent (V.EvKey V.KRight []))      = continue $ moveBomberman East g
+handleEvent g (VtyEvent (V.EvKey V.KLeft []))       = continue $ moveBomberman West g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'b') [])) = continue $ plantBomb g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
+handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
+handleEvent g _                                     = continue g
+
 main :: IO ()
 main = do
   chan <- newBChan 10
+  forkIO $ forever $ do
+    writeBChan chan Tick
+    threadDelay 200000 -- decides how fast your game moves
   g <- initGame
   let builder = V.mkVty V.defaultConfig
   initialVty <- builder
@@ -64,7 +80,26 @@ main = do
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [ C.center $ drawGrid g ]
+  [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g ]
+
+drawStats :: Game -> Widget Name
+drawStats g = hLimit 11
+  $ vBox [ drawScore (g ^. score)
+         , padTop (Pad 2) $ drawGameOver (g ^. dead)
+         ]
+
+drawScore :: Int -> Widget Name
+drawScore n = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "Score")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ show n
+
+drawGameOver :: Bool -> Widget Name
+drawGameOver dead =
+  if dead
+     then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
+     else emptyWidget
 
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
@@ -75,14 +110,39 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..width-1]]
     drawCoord    = drawCell . cellAt
     cellAt c
-      | c == g ^. bomberman     = Bomberman
-      | c `elem` g ^. walls     = Wall
-      | otherwise               = Empty
+      | c == g ^. bomberman               = Bomberman
+      | c `elem` g ^. walls               = Wall
+      | c `elem` g ^. explosions          = Explosion
+      | c `elem` g ^. brickwalls          = BrickWall
+      | c `elem` (getBombLocs g) = Bomb
+      | otherwise                         = Empty
 
 drawCell :: Cell -> Widget Name
-drawCell Bomberman = cw
-drawCell Wall      = cw
-drawCell Empty     = cw
+drawCell Bomberman = withAttr bombermanAttr (str "   ")
+drawCell Wall      = withAttr wallAttr (str "   ")
+drawCell BrickWall = withAttr brickAttr (str "   ")
+drawCell Bomb      = withAttr bombAttr (str "   ")
+drawCell Explosion = withAttr explosionAttr (str "   ")
+drawCell Empty     = withAttr emptyAttr (str "   ")
 
-cw :: Widget Name
-cw = str "*"
+theMap :: AttrMap
+theMap = attrMap V.defAttr
+  [ (bombermanAttr, V.blue `on` V.blue)
+  , (wallAttr, V.black `on` V.black)
+  , (brickAttr, V.yellow `on` V.yellow)
+  , (bombAttr, V.red `on` V.red)
+  , (explosionAttr, V.white `on` V.white)
+  , (emptyAttr, V.green `on` V.green)
+  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
+  ]
+
+gameOverAttr :: AttrName
+gameOverAttr = "gameOver"
+
+bombermanAttr, wallAttr, emptyAttr :: AttrName
+bombermanAttr = "bombermanAttr"
+wallAttr      = "wallAttr"
+brickAttr     = "brickAttr"
+bombAttr      = "bombAttr"
+explosionAttr = "explosionAttr"
+emptyAttr     = "emptyAttr"
