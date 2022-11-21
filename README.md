@@ -19,3 +19,24 @@ Link to the online game: https://www.retrogames.cz/play_085-NES.php?language=EN
     - Player can collect powerups using which they can move faster, deploy powerful bombs, get more lives etc.
     - There will be more levels with increasing difficulty.
 
+## Milestone-3 Updates:
+
+### What is the architecture of your application (the key components)?
+High-level architecture diagram:
+![image](https://user-images.githubusercontent.com/30871945/203180194-26e3f48f-ec5a-46ca-98ec-9407ff41449d.png)
+
+The key components in our game state are shown in the following diagram:
+![image](https://user-images.githubusercontent.com/30871945/203180133-83c14a0a-ce25-46b0-ba22-4a987e846fe6.png)
+
+
+### What challenges (if any) did you have so far and how did you solve them?
+- Firstly we had some challenges getting familiar with the brick library, and the internal architecture that is used to render games. All team members were new to this, and thought it was challenging to get started
+- In general programming languages like Java, Python it is very easy to get/set variables in objects. But in Haskell this gets a bit complicated, to tackle this challenge we learnt about Lenses. Lenses provide an easy way for accessing/updating fields in objects.
+- Since Haskell is a pure language we need to mention IO side-effects even for generating random numbers. This was a bit counter-intuitive at start. Apart from that, we had to rewrite the functions with IO side-effects using do blocks.
+
+### Do you expect to meet your goals before the deadline?
+- We expect to meet our initial goal of creating a working version with the essential features of the game discussed in the README.
+- If time permits we want to add some advanced features like power-ups and levels with increasing difficulty. 
+
+### If not, how will you modify your goals?
+- We do not intend to modify our goals.
