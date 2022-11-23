@@ -78,10 +78,11 @@ scorePerBrick = 2
 
 -- | Step forward in time
 -- |  - update score
-step :: Game -> Game
-step g = do (updateBricks g (g ^. brickwalls))
-            & explosions .~ []
-            & (updateBombs (g ^. bombs)) 
+step :: Game -> IO Game
+step g =  do let g = (updateBricks g (g ^. brickwalls))
+            g & explosions .~ []
+            g & (updateBombs (g ^. bombs)
+            g <- g & (updateEnemies (g ^. enemies))) 
 
 updateBricks :: Game -> [Coord] -> Game
 updateBricks g [] = g & brickwalls .~ []
@@ -120,7 +121,8 @@ moveDir g d prev
 checkObstacle :: Game -> Coord -> Int -> Int -> Bool
 checkObstacle g prev@(V2 x y) dx dy = if ((checkWall newC) ||
                                           (checkBrick g newC) ||
-                                          (checkBomb g newC))
+                                          (checkBomb g newC) ||
+                                          (checkEnemy g newC))
                                       then True
                                       else False
   where
@@ -225,8 +227,18 @@ genEnemy c@(V2 x y) brickwalls = do
                         else if (randomNum < enemyDensity) then (return True)
                         else (return False)
 
+checkEnemy :: Game -> Coord -> Bool
+checkEnemy g c = c `elem` g ^. enemies
 
-
+updateEnemies :: [Coord] -> Game -> IO Game
+updateEnemies [] g = return (g & enemies .~ [])
+updateEnemies (e: rest) g  = do
+                        randomNum <- (drawDouble 0 1)
+                        restGame <- updateEnemies rest g 
+                        if (randomNum < 0.25) then return (restGame & enemies %~ (++ [(moveDir g North e)]) )
+                        else if (randomNum < 0.5) then return (restGame & enemies %~ (++ [(moveDir g South e)]) )
+                        else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
+                        else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
 
 
 -- | Initialize a paused game with random food location
