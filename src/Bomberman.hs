@@ -7,7 +7,7 @@ module Bomberman
   , Direction(..)
   , step
   , moveBomberman, getBombLocs, plantBomb
-  , walls, bomberman, brickwalls, bombs, explosions, score, dead
+  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies
   , height, width
   ) where
 
@@ -30,9 +30,9 @@ data Game = Game
   { _bomberman  :: Coord        -- ^ bomberman location
   , _bombs      :: [Bomb]       -- ^ bombs location
   , _explosions :: [Coord]      -- ^ explosion locations
-  , _enemies    :: [Coord] -- ^ enemies locations
-  , _brickwalls :: [Coord] -- ^ bricks locations
-  , _walls      :: Seq Coord -- ^ walls locations
+  , _enemies    :: [Coord]      -- ^ enemies locations
+  , _brickwalls :: [Coord]      -- ^ bricks locations
+  , _walls      :: Seq Coord    -- ^ walls locations
   , _target     :: Coord        -- ^ Target location
   , _dead       :: Bool         -- ^ game over flag
   , _lives      :: Int          -- ^ remaining lives
@@ -65,6 +65,9 @@ width = 21
 -- Varies between 0 and 1, increasing the value leads to creation of more num. of bricks
 brickDensity :: Double
 brickDensity = 0.1
+
+enemyDensity :: Double
+enemyDensity = 0.03
 
 -- Bomb timer: no. of ticks before explosion
 bombTimer = 3
@@ -194,11 +197,44 @@ plantBomb :: Game -> Game
 plantBomb g@Game { _bomberman = b } = if (checkBomb g b) then g
                                       else g & bombs %~ (++ [(b, bombTimer)])
 
+
+--ENEMIES
+
+getEnemy :: [Coord] -> IO [Coord]
+getEnemy brickwalls = do
+              list <- genEnemies allCoords brickwalls
+              return list
+  where
+    allCoords = [(V2 x y) | x <- [0..width-1], y <- [0..height-1]]
+
+genEnemies :: [Coord] -> [Coord] -> IO [Coord]
+genEnemies [] _       = (return [])
+genEnemies (a: rest) brickwalls = do
+                        isEnemy <- (genEnemy a brickwalls)
+                        restEnemies <- (genEnemies rest brickwalls)
+                        if isEnemy
+                        then (return (a: restEnemies))
+                        else (return restEnemies)
+
+genEnemy :: Coord -> [Coord] -> IO Bool
+genEnemy c@(V2 x y) brickwalls = do
+                        randomNum <- (drawDouble 0 1)
+                        if (checkWall c) then (return False)
+                        else if (c `elem` brickwalls) then (return False)
+                        else if ((x == 1) && (y==1)) then (return False)
+                        else if (randomNum < enemyDensity) then (return True)
+                        else (return False)
+
+
+
+
+
 -- | Initialize a paused game with random food location
 initGame :: IO Game
 initGame = do
   let walls = getWalls
   brickwalls <- getBricks
+  enemies <- getEnemy brickwalls
   let xm = width `div` 2
       ym = height `div` 2
       g  = Game
@@ -210,6 +246,7 @@ initGame = do
         , _score  = 0
         , _dead   = False
         , _locked = False
+        ,_enemies = enemies
         }
   return $ execState nextFood g
 
