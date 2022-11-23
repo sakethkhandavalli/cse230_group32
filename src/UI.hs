@@ -42,7 +42,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Bomberman | Wall | BrickWall | Explosion | Bomb | Empty
+data Cell = Bomberman | Wall | BrickWall | Explosion | Bomb | Empty | Enemy
 
 -- App definition
 
@@ -114,7 +114,8 @@ drawGrid g = withBorderStyle BS.unicodeBold
       | c `elem` g ^. walls               = Wall
       | c `elem` g ^. explosions          = Explosion
       | c `elem` g ^. brickwalls          = BrickWall
-      | c `elem` (getBombLocs g) = Bomb
+      | c `elem` (getBombLocs g)          = Bomb
+      | c `elem` g ^. enemies             = Enemy
       | otherwise                         = Empty
 
 drawCell :: Cell -> Widget Name
@@ -124,6 +125,7 @@ drawCell BrickWall = withAttr brickAttr (str "   ")
 drawCell Bomb      = withAttr bombAttr (str "   ")
 drawCell Explosion = withAttr explosionAttr (str "   ")
 drawCell Empty     = withAttr emptyAttr (str "   ")
+drawCell Enemy     = withAttr enemyAttr (str "   ")
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
@@ -134,6 +136,7 @@ theMap = attrMap V.defAttr
   , (explosionAttr, V.white `on` V.white)
   , (emptyAttr, V.green `on` V.green)
   , (gameOverAttr, fg V.red `V.withStyle` V.bold)
+  , (enemyAttr, V.magenta `on` V.magenta)
   ]
 
 gameOverAttr :: AttrName
@@ -146,3 +149,4 @@ brickAttr     = "brickAttr"
 bombAttr      = "bombAttr"
 explosionAttr = "explosionAttr"
 emptyAttr     = "emptyAttr"
+enemyAttr     = "enemyAttr"
