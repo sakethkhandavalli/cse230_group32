@@ -110,12 +110,12 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..width-1]]
     drawCoord    = drawCell . cellAt
     cellAt c
-      | c == g ^. bomberman               = Bomberman
       | c `elem` g ^. walls               = Wall
       | c `elem` g ^. explosions          = Explosion
       | c `elem` g ^. brickwalls          = BrickWall
       | c `elem` (getBombLocs g)          = Bomb
       | c `elem` g ^. enemies             = Enemy
+      | c == g ^. bomberman               = Bomberman
       | otherwise                         = Empty
 
 drawCell :: Cell -> Widget Name

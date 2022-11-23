@@ -72,19 +72,22 @@ enemyDensity = 0.03
 -- Bomb timer: no. of ticks before explosion
 bombTimer = 3
 
+-- scores when an enemy/brick is killed
 scorePerBrick = 2
+scorePerEnemy = 10
 
 -- Functions
 
 -- | Step forward in time
 -- |  - update score
 step :: Game -> IO Game
-step g = do
-            let updatedGame = (updateBricks g (g ^. brickwalls))
-                              & explosions .~ []
-                              & (updateBombs (g ^. bombs))
-            updatedGame <- (updateEnemies (updatedGame ^. enemies) updatedGame)
-            return updatedGame 
+step g = if (g ^. dead) then (return g)
+        else do
+              let updatedGame = (updateBricks g (g ^. brickwalls))
+                                & explosions .~ []
+                                & (updateBombs (g ^. bombs))
+              updatedGame <- (updateEnemies (updatedGame ^. enemies) updatedGame)
+              return ((killEnemies updatedGame (updatedGame ^. enemies)) & checkDeath)
 
 updateBricks :: Game -> [Coord] -> Game
 updateBricks g [] = g & brickwalls .~ []
@@ -108,7 +111,7 @@ getExplosionLocs (V2 x y) = [(V2 x y), (V2 (x-1) y), (V2 x (y-1)), (V2 (x+1) y),
 -- | Move bomberman
 -- | TODO: add locked true
 moveBomberman :: Direction -> Game -> Game
-moveBomberman d g@Game { _bomberman = b } = if g ^. locked
+moveBomberman d g@Game { _bomberman = b } = if (g ^. dead)
                                             then g
                                             else g & bomberman %~ (moveDir g d)
 
@@ -201,6 +204,10 @@ plantBomb :: Game -> Game
 plantBomb g@Game { _bomberman = b } = if (checkBomb g b) then g
                                       else g & bombs %~ (++ [(b, bombTimer)])
 
+checkDeath :: Game -> Game
+checkDeath g = if ((g ^. bomberman) `elem` (g ^. enemies)) || ((g ^. bomberman) `elem` (g ^. explosions))
+               then g & dead .~ True
+               else g
 
 --ENEMIES
 
@@ -242,6 +249,13 @@ updateEnemies (e: rest) g  = do
                               else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
                               else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
 
+killEnemies :: Game -> [Coord] -> Game
+killEnemies g []        = g & enemies .~ []
+killEnemies g (e: rest) = if (checkExplosion g e)
+                           then restGame & score %~ (\x -> (x+scorePerEnemy))
+                           else restGame & enemies %~ (++ [e])
+  where
+    restGame = killEnemies g rest
 
 -- | Initialize a paused game with random food location
 initGame :: IO Game
