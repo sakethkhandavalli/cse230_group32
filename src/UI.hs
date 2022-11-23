@@ -57,7 +57,7 @@ app = App { appDraw = drawUI
 -- Handling events
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
-handleEvent g (AppEvent Tick)                       = continue $ step g
+handleEvent g (AppEvent Tick)                       = liftIO (step g) >>= continue
 handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ moveBomberman North g
 handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ moveBomberman South g
 handleEvent g (VtyEvent (V.EvKey V.KRight []))      = continue $ moveBomberman East g

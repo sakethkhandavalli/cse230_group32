@@ -79,10 +79,12 @@ scorePerBrick = 2
 -- | Step forward in time
 -- |  - update score
 step :: Game -> IO Game
-step g =  do let g = (updateBricks g (g ^. brickwalls))
-            g & explosions .~ []
-            g & (updateBombs (g ^. bombs)
-            g <- g & (updateEnemies (g ^. enemies))) 
+step g = do
+            let updatedGame = (updateBricks g (g ^. brickwalls))
+                              & explosions .~ []
+                              & (updateBombs (g ^. bombs))
+            updatedGame <- (updateEnemies (updatedGame ^. enemies) updatedGame)
+            return updatedGame 
 
 updateBricks :: Game -> [Coord] -> Game
 updateBricks g [] = g & brickwalls .~ []
@@ -231,14 +233,14 @@ checkEnemy :: Game -> Coord -> Bool
 checkEnemy g c = c `elem` g ^. enemies
 
 updateEnemies :: [Coord] -> Game -> IO Game
-updateEnemies [] g = return (g & enemies .~ [])
+updateEnemies [] g         = return (g & enemies .~ [])
 updateEnemies (e: rest) g  = do
-                        randomNum <- (drawDouble 0 1)
-                        restGame <- updateEnemies rest g 
-                        if (randomNum < 0.25) then return (restGame & enemies %~ (++ [(moveDir g North e)]) )
-                        else if (randomNum < 0.5) then return (restGame & enemies %~ (++ [(moveDir g South e)]) )
-                        else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
-                        else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
+                              randomNum <- (drawDouble 0 1)
+                              restGame <- updateEnemies rest g 
+                              if (randomNum < 0.25) then return (restGame & enemies %~ (++ [(moveDir g North e)]) )
+                              else if (randomNum < 0.5) then return (restGame & enemies %~ (++ [(moveDir g South e)]) )
+                              else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
+                              else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
 
 
 -- | Initialize a paused game with random food location
