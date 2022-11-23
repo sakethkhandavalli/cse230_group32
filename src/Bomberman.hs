@@ -7,7 +7,7 @@ module Bomberman
   , Direction(..)
   , step
   , moveBomberman, getBombLocs, plantBomb
-  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies
+  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies, target
   , height, width
   ) where
 
@@ -257,12 +257,34 @@ killEnemies g (e: rest) = if (checkExplosion g e)
   where
     restGame = killEnemies g rest
 
+
+--Creating target for bomberman
+getTarget :: IO Coord
+getTarget = do
+            let possibleCoord = getCoordWithoutWalls allCoords
+            a <- drawInt 0 ((length possibleCoord)-1)
+            return (possibleCoord !! a)
+            where
+            allCoords = [(V2 x y) | x <- [0..width-1], y <- [0..height-1]]
+
+
+getCoordWithoutWalls :: [Coord] -> [Coord]
+getCoordWithoutWalls [] = []
+getCoordWithoutWalls (c: rest) = if checkWall c then restlist
+                                else c : restlist
+                                where restlist = getCoordWithoutWalls rest
+                               
+drawInt :: Int -> Int -> IO Int
+drawInt x y = getStdRandom (randomR (x,y))
+
+
 -- | Initialize a paused game with random food location
 initGame :: IO Game
 initGame = do
   let walls = getWalls
   brickwalls <- getBricks
   enemies <- getEnemy brickwalls
+  target <- getTarget
   let xm = width `div` 2
       ym = height `div` 2
       g  = Game
@@ -275,6 +297,7 @@ initGame = do
         , _dead   = False
         , _locked = False
         ,_enemies = enemies
+        ,_target = target
         }
   return $ execState nextFood g
 
