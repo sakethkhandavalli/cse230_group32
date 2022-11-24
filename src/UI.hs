@@ -85,7 +85,7 @@ drawUI g =
 drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
   $ vBox [ drawScore (g ^. score)
-         , padTop (Pad 2) $ drawGameOver (g ^. dead)
+         , padTop (Pad 2) $ drawGameOver g
          ]
 
 drawScore :: Int -> Widget Name
@@ -95,11 +95,13 @@ drawScore n = withBorderStyle BS.unicodeBold
   $ padAll 1
   $ str $ show n
 
-drawGameOver :: Bool -> Widget Name
-drawGameOver dead =
-  if dead
+drawGameOver :: Game -> Widget Name
+drawGameOver g =
+  if (g ^. dead)
      then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
-     else emptyWidget
+  else if (g ^. success)
+     then withAttr successAttr $ C.hCenter $ str "YOU WON"
+  else emptyWidget
 
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
@@ -140,6 +142,7 @@ theMap = attrMap V.defAttr
   , (gameOverAttr, fg V.red `V.withStyle` V.bold)
   , (enemyAttr, V.magenta `on` V.magenta)
   , (targetAttr, V.cyan `on` V.cyan)
+  , (successAttr, fg V.green `V.withStyle` V.bold)
   ]
 
 gameOverAttr :: AttrName
@@ -153,4 +156,5 @@ bombAttr      = "bombAttr"
 explosionAttr = "explosionAttr"
 emptyAttr     = "emptyAttr"
 enemyAttr     = "enemyAttr"
+successAttr   = "successAttr"
 targetAttr    = "targetAttr"

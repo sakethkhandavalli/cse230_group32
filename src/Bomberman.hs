@@ -7,7 +7,7 @@ module Bomberman
   , Direction(..)
   , step
   , moveBomberman, getBombLocs, plantBomb
-  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies, target
+  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies, target, success
   , height, width
   ) where
 
@@ -35,6 +35,7 @@ data Game = Game
   , _walls      :: Seq Coord    -- ^ walls locations
   , _target     :: Coord        -- ^ Target location
   , _dead       :: Bool         -- ^ game over flag
+  , _success    :: Bool         -- ^ success flag
   , _lives      :: Int          -- ^ remaining lives
   , _score      :: Int          -- ^ score
   , _locked     :: Bool         -- ^ lock to disallow duplicate turns between time steps
@@ -81,13 +82,14 @@ scorePerEnemy = 10
 -- | Step forward in time
 -- |  - update score
 step :: Game -> IO Game
-step g = if (g ^. dead) then (return g)
-        else do
-              let updatedGame = (updateBricks g (g ^. brickwalls))
-                                & explosions .~ []
-                                & (updateBombs (g ^. bombs))
-              updatedGame <- (updateEnemies (updatedGame ^. enemies) updatedGame)
-              return ((killEnemies updatedGame (updatedGame ^. enemies)) & checkDeath)
+step g = if ((g ^. dead)  || (g ^. success))
+          then (return g)
+          else do
+                let updatedGame = (updateBricks g (g ^. brickwalls))
+                                  & explosions .~ []
+                                  & (updateBombs (g ^. bombs))
+                updatedGame <- (updateEnemies (updatedGame ^. enemies) updatedGame)
+                return ((killEnemies updatedGame (updatedGame ^. enemies)) & checkDeath)
 
 updateBricks :: Game -> [Coord] -> Game
 updateBricks g [] = g & brickwalls .~ []
@@ -111,9 +113,9 @@ getExplosionLocs (V2 x y) = [(V2 x y), (V2 (x-1) y), (V2 x (y-1)), (V2 (x+1) y),
 -- | Move bomberman
 -- | TODO: add locked true
 moveBomberman :: Direction -> Game -> Game
-moveBomberman d g@Game { _bomberman = b } = if (g ^. dead)
+moveBomberman d g@Game { _bomberman = b } = if ((g ^. dead) || (g ^. success))
                                             then g
-                                            else g & bomberman %~ (moveDir g d)
+                                            else (g & bomberman %~ (moveDir g d)) & checkSuccess
 
 moveDir :: Game -> Direction -> Coord -> Coord
 moveDir g d prev
@@ -121,6 +123,11 @@ moveDir g d prev
   | d == South = prev & _y %~ (\y -> if (checkObstacle g prev 0 (-1)) then y else (y - 1))
   | d == East  = prev & _x %~ (\x -> if (checkObstacle g prev 1 0) then x else (x + 1))
   | d == West  = prev & _x %~ (\x -> if (checkObstacle g prev (-1) 0) then x else (x - 1))
+
+checkSuccess :: Game -> Game
+checkSuccess g = if ((g ^. bomberman) == (g ^. target))
+                 then (g & success .~ True)
+                 else g
 
 -- Takes current coord, change in x, change in y and checks if obstacle is present at new coords
 checkObstacle :: Game -> Coord -> Int -> Int -> Bool
@@ -201,7 +208,7 @@ getLocs [] = []
 getLocs ((coord, _): rest) = (coord : getLocs rest)
 
 plantBomb :: Game -> Game
-plantBomb g@Game { _bomberman = b } = if (checkBomb g b) then g
+plantBomb g@Game { _bomberman = b } = if ((g ^. dead) || (g ^. success) || (checkBomb g b)) then g
                                       else g & bombs %~ (++ [(b, bombTimer)])
 
 checkDeath :: Game -> Game
@@ -295,6 +302,7 @@ initGame = do
         , _bombs = []
         , _score  = 0
         , _dead   = False
+        , _success = False
         , _locked = False
         ,_enemies = enemies
         ,_target = target
