@@ -63,6 +63,7 @@ handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ moveBomberman S
 handleEvent g (VtyEvent (V.EvKey V.KRight []))      = continue $ moveBomberman East g
 handleEvent g (VtyEvent (V.EvKey V.KLeft []))       = continue $ moveBomberman West g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'b') [])) = continue $ plantBomb g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame) >>= continue
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
 handleEvent g _                                     = continue g

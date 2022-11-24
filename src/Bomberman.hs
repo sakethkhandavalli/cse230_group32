@@ -133,8 +133,7 @@ checkSuccess g = if ((g ^. bomberman) == (g ^. target))
 checkObstacle :: Game -> Coord -> Int -> Int -> Bool
 checkObstacle g prev@(V2 x y) dx dy = if ((checkWall newC) ||
                                           (checkBrick g newC) ||
-                                          (checkBomb g newC) ||
-                                          (checkEnemy g newC))
+                                          (checkBomb g newC))
                                       then True
                                       else False
   where
@@ -239,7 +238,7 @@ genEnemy c@(V2 x y) brickwalls = do
                         randomNum <- (drawDouble 0 1)
                         if (checkWall c) then (return False)
                         else if (c `elem` brickwalls) then (return False)
-                        else if ((x == 1) && (y==1)) then (return False)
+                        else if ((x == 1) && (y == 1)) then (return False)
                         else if (randomNum < enemyDensity) then (return True)
                         else (return False)
 
@@ -277,9 +276,10 @@ getTarget = do
 
 getCoordWithoutWalls :: [Coord] -> [Coord]
 getCoordWithoutWalls [] = []
-getCoordWithoutWalls (c: rest) = if checkWall c then restlist
-                                else c : restlist
-                                where restlist = getCoordWithoutWalls rest
+getCoordWithoutWalls (c@(V2 x y): rest) = if (checkWall c) || ((x == 1) && (y == 1))
+                                          then restlist
+                                          else c : restlist
+                                          where restlist = getCoordWithoutWalls rest
                                
 drawInt :: Int -> Int -> IO Int
 drawInt x y = getStdRandom (randomR (x,y))
