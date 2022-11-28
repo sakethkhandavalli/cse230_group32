@@ -81,7 +81,25 @@ main = do
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g ]
+  [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g <+> drawGuide ]
+
+
+drawGuide :: Widget Name
+drawGuide =
+  hLimit 35
+  $ withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "Guide")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ "Move Up    - Up arrow\n\
+           \Move Down  - Down arrow\n\
+           \Move Left  - Left arrow\n\
+           \Move Right - Right arrow\n\
+           \Plant Bomb - b key\n\
+           \Quit Game  - q/esc key\n\
+           \Reset Game - r key"
+
+
 
 drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
@@ -95,6 +113,8 @@ drawScore n = withBorderStyle BS.unicodeBold
   $ C.hCenter
   $ padAll 1
   $ str $ show n
+
+
 
 drawGameOver :: Game -> Widget Name
 drawGameOver g =
