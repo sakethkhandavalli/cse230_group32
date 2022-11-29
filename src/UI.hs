@@ -102,6 +102,7 @@ drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
   $ vBox [ drawScore (g ^. score)
          , padTop (Pad 2) $ drawGameOver g
+         , padTop (Pad 2) $ drawLives g
          ]
 
 drawScore :: Int -> Widget Name
@@ -113,11 +114,18 @@ drawScore n = withBorderStyle BS.unicodeBold
 
 drawGameOver :: Game -> Widget Name
 drawGameOver g =
-  if (g ^. dead)
+  if (g ^. lives == 0)
      then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
   else if (g ^. success)
      then withAttr successAttr $ C.hCenter $ str "YOU WON"
   else emptyWidget
+
+drawLives :: Game -> Widget Name
+drawLives g = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "Lives")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ show (g ^. lives)
 
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold

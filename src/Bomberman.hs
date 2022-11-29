@@ -7,7 +7,7 @@ module Bomberman
   , Direction(..)
   , step
   , moveBomberman, getBombLocs, plantBomb
-  , walls, bomberman, brickwalls, bombs, explosions, score, dead, enemies, target, success
+  , walls, bomberman, brickwalls, bombs, explosions, score, enemies, target, success, lives
   , height, width
   ) where
 
@@ -34,7 +34,6 @@ data Game = Game
   , _brickwalls     :: [Coord]      -- ^ bricks locations
   , _walls          :: Seq Coord    -- ^ walls locations
   , _target         :: Coord        -- ^ Target location
-  , _dead           :: Bool         -- ^ game over flag
   , _success        :: Bool         -- ^ success flag
   , _lives          :: Int          -- ^ remaining lives
   , _score          :: Int          -- ^ score
@@ -64,6 +63,9 @@ height, width :: Int
 height = 21
 width = 21
 
+-- Initial position of bomberman
+initialLoc = (V2 1 1)
+
 -- Varies between 0 and 1, increasing the value leads to creation of more num. of bricks
 brickDensity :: Double
 brickDensity = 0.1
@@ -79,14 +81,17 @@ scorePerBrick = 2
 scorePerEnemy = 10
 
 -- enemy movement frequency
-enemyMovementTime = 10
+enemyMovementTime = 3
+
+-- Number of lives
+maxLives = 3
 
 -- Functions
 
 -- | Step forward in time
 -- |  - update score
 step :: Game -> IO Game
-step g = if ((g ^. dead)  || (g ^. success))
+step g = if ((g ^. lives == 0)  || (g ^. success))
           then (return g)
           else do
                 let updatedGame = (updateBricks g (g ^. brickwalls))
@@ -117,7 +122,7 @@ getExplosionLocs (V2 x y) = [(V2 x y), (V2 (x-1) y), (V2 x (y-1)), (V2 (x+1) y),
 -- | Move bomberman
 -- | TODO: add locked true
 moveBomberman :: Direction -> Game -> Game
-moveBomberman d g@Game { _bomberman = b } = if ((g ^. dead) || (g ^. success))
+moveBomberman d g@Game { _bomberman = b } = if ((g ^. lives == 0) || (g ^. success))
                                             then g
                                             else (g & bomberman %~ (moveDir g d)) & checkSuccess & checkDeath
 
@@ -146,7 +151,7 @@ checkObstacle g prev@(V2 x y) dx dy = if ((checkWall newC) ||
 -- | Set a valid next food coordinate
 nextFood :: State Game ()
 nextFood = do
-  dead .= False
+  locked .= False
 
 getBricks :: IO [Coord]
 getBricks = do
@@ -211,12 +216,12 @@ getLocs [] = []
 getLocs ((coord, _): rest) = (coord : getLocs rest)
 
 plantBomb :: Game -> Game
-plantBomb g@Game { _bomberman = b } = if ((g ^. dead) || (g ^. success) || (checkBomb g b)) then g
+plantBomb g@Game { _bomberman = b } = if ((g ^. lives == 0) || (g ^. success) || (checkBomb g b)) then g
                                       else g & bombs %~ (++ [(b, bombTimer)])
 
 checkDeath :: Game -> Game
 checkDeath g = if ((g ^. bomberman) `elem` (g ^. enemies)) || ((g ^. bomberman) `elem` (g ^. explosions))
-               then g & dead .~ True
+               then g & lives %~ (\x -> (x-1)) & (bomberman .~ initialLoc)
                else g
 
 --ENEMIES
@@ -304,14 +309,14 @@ initGame = do
   let xm = width `div` 2
       ym = height `div` 2
       g  = Game
-        { _bomberman  = (V2 1 1)
+        { _bomberman  = initialLoc
         , _walls  = walls
         , _brickwalls = brickwalls
         , _explosions = []
         , _bombs = []
         , _score  = 0
         , _moveEnemyTime = enemyMovementTime
-        , _dead   = False
+        , _lives = maxLives
         , _success = False
         , _locked = False
         ,_enemies = enemies
