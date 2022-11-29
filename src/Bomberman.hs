@@ -27,18 +27,19 @@ import System.Random (getStdRandom, randomR)
 -- Types
 
 data Game = Game
-  { _bomberman  :: Coord        -- ^ bomberman location
-  , _bombs      :: [Bomb]       -- ^ bombs location
-  , _explosions :: [Coord]      -- ^ explosion locations
-  , _enemies    :: [Coord]      -- ^ enemies locations
-  , _brickwalls :: [Coord]      -- ^ bricks locations
-  , _walls      :: Seq Coord    -- ^ walls locations
-  , _target     :: Coord        -- ^ Target location
-  , _dead       :: Bool         -- ^ game over flag
-  , _success    :: Bool         -- ^ success flag
-  , _lives      :: Int          -- ^ remaining lives
-  , _score      :: Int          -- ^ score
-  , _locked     :: Bool         -- ^ lock to disallow duplicate turns between time steps
+  { _bomberman      :: Coord        -- ^ bomberman location
+  , _bombs          :: [Bomb]       -- ^ bombs location
+  , _explosions     :: [Coord]      -- ^ explosion locations
+  , _enemies        :: [Coord]      -- ^ enemies locations
+  , _brickwalls     :: [Coord]      -- ^ bricks locations
+  , _walls          :: Seq Coord    -- ^ walls locations
+  , _target         :: Coord        -- ^ Target location
+  , _dead           :: Bool         -- ^ game over flag
+  , _success        :: Bool         -- ^ success flag
+  , _lives          :: Int          -- ^ remaining lives
+  , _score          :: Int          -- ^ score
+  , _locked         :: Bool         -- ^ lock to disallow duplicate turns between time steps
+  , _moveEnemyTime  :: Int          -- ^ number of ticks after which enemies are moved
   } deriving (Show)
 
 type Coord = V2 Int
@@ -76,6 +77,9 @@ bombTimer = 3
 -- scores when an enemy/brick is killed
 scorePerBrick = 2
 scorePerEnemy = 10
+
+-- enemy movement frequency
+enemyMovementTime = 10
 
 -- Functions
 
@@ -115,7 +119,7 @@ getExplosionLocs (V2 x y) = [(V2 x y), (V2 (x-1) y), (V2 x (y-1)), (V2 (x+1) y),
 moveBomberman :: Direction -> Game -> Game
 moveBomberman d g@Game { _bomberman = b } = if ((g ^. dead) || (g ^. success))
                                             then g
-                                            else (g & bomberman %~ (moveDir g d)) & checkSuccess
+                                            else (g & bomberman %~ (moveDir g d)) & checkSuccess & checkDeath
 
 moveDir :: Game -> Direction -> Coord -> Coord
 moveDir g d prev
@@ -248,12 +252,17 @@ checkEnemy g c = c `elem` g ^. enemies
 updateEnemies :: [Coord] -> Game -> IO Game
 updateEnemies [] g         = return (g & enemies .~ [])
 updateEnemies (e: rest) g  = do
-                              randomNum <- (drawDouble 0 1)
-                              restGame <- updateEnemies rest g 
-                              if (randomNum < 0.25) then return (restGame & enemies %~ (++ [(moveDir g North e)]) )
-                              else if (randomNum < 0.5) then return (restGame & enemies %~ (++ [(moveDir g South e)]) )
-                              else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
-                              else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
+                              if ((g ^. moveEnemyTime) /= 0)
+                              then return (g & moveEnemyTime %~ (\x -> (x-1)))
+                              else
+                                do 
+                                  randomNum <- (drawDouble 0 1)
+                                  updatedGame <- updateEnemies rest g
+                                  let restGame = updatedGame & moveEnemyTime .~ enemyMovementTime
+                                  if (randomNum < 0.25) then return (restGame & enemies %~ (++ [(moveDir g North e)]) )
+                                  else if (randomNum < 0.5) then return (restGame & enemies %~ (++ [(moveDir g South e)]) )
+                                  else if (randomNum < 0.75) then return (restGame & enemies %~ (++ [(moveDir g East e)])) 
+                                  else return (restGame & enemies %~ (++ [(moveDir g West e)]) )
 
 killEnemies :: Game -> [Coord] -> Game
 killEnemies g []        = g & enemies .~ []
@@ -301,6 +310,7 @@ initGame = do
         , _explosions = []
         , _bombs = []
         , _score  = 0
+        , _moveEnemyTime = enemyMovementTime
         , _dead   = False
         , _success = False
         , _locked = False

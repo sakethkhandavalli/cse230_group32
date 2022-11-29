@@ -83,7 +83,6 @@ drawUI :: Game -> [Widget Name]
 drawUI g =
   [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g <+> drawGuide ]
 
-
 drawGuide :: Widget Name
 drawGuide =
   hLimit 35
@@ -99,8 +98,6 @@ drawGuide =
            \Quit Game  - q/esc key\n\
            \Reset Game - r key"
 
-
-
 drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
   $ vBox [ drawScore (g ^. score)
@@ -113,8 +110,6 @@ drawScore n = withBorderStyle BS.unicodeBold
   $ C.hCenter
   $ padAll 1
   $ str $ show n
-
-
 
 drawGameOver :: Game -> Widget Name
 drawGameOver g =
