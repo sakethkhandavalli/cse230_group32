@@ -42,7 +42,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Bomberman | Wall | BrickWall | Explosion | Bomb | Empty | Enemy | Target
+data Cell = Bomberman | Wall | BrickWall | Explosion | Bomb | Empty | Enemy | Target | AddLifeCell | SlowEnemiesCell
 
 -- App definition
 
@@ -96,7 +96,9 @@ drawGuide =
            \Move Right - Right arrow\n\
            \Plant Bomb - b key\n\
            \Quit Game  - q/esc key\n\
-           \Reset Game - r key"
+           \Reset Game - r key\n\
+           \Pink Powerup - Extra Life\n\
+           \Blue Powerup - Freeze Enemies"
 
 drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
@@ -136,24 +138,28 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..width-1]]
     drawCoord    = drawCell . cellAt
     cellAt c
-      | c `elem` g ^. walls               = Wall
-      | c `elem` g ^. explosions          = Explosion
-      | c `elem` g ^. brickwalls          = BrickWall
-      | c `elem` (getBombLocs g)          = Bomb
-      | c `elem` g ^. enemies             = Enemy
-      | c == g ^. bomberman               = Bomberman
-      | c == g ^. target                  = Target
-      | otherwise                         = Empty
+      | c `elem` g ^. walls                             = Wall
+      | c `elem` g ^. explosions                        = Explosion
+      | c `elem` g ^. brickwalls                        = BrickWall
+      | c `elem` (getBombLocs g)                        = Bomb
+      | c `elem` g ^. enemies                           = Enemy
+      | c == g ^. bomberman                             = Bomberman
+      | c == g ^. target                                = Target
+      | c `elem` (getPowerUpLocsOfType g AddLife)       = AddLifeCell
+      | c `elem` (getPowerUpLocsOfType g SlowEnemies)   = SlowEnemiesCell
+      | otherwise                                       = Empty
 
 drawCell :: Cell -> Widget Name
-drawCell Bomberman = withAttr bombermanAttr (str "   ")
-drawCell Wall      = withAttr wallAttr (str "   ")
-drawCell BrickWall = withAttr brickAttr (str "   ")
-drawCell Bomb      = withAttr bombAttr (str "   ")
-drawCell Explosion = withAttr explosionAttr (str "   ")
-drawCell Empty     = withAttr emptyAttr (str "   ")
-drawCell Enemy     = withAttr enemyAttr (str "   ")
-drawCell Target    = withAttr targetAttr (str "   ")
+drawCell Bomberman        = withAttr bombermanAttr (str "   ")
+drawCell Wall             = withAttr wallAttr (str "   ")
+drawCell BrickWall        = withAttr brickAttr (str "   ")
+drawCell Bomb             = withAttr bombAttr (str "   ")
+drawCell Explosion        = withAttr explosionAttr (str "   ")
+drawCell Empty            = withAttr emptyAttr (str "   ")
+drawCell Enemy            = withAttr enemyAttr (str "   ")
+drawCell Target           = withAttr targetAttr (str "   ")
+drawCell AddLifeCell      = withAttr addLifeAttr (str "   ")
+drawCell SlowEnemiesCell  = withAttr slowEnemiesAttr (str "   ")
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
@@ -166,6 +172,8 @@ theMap = attrMap V.defAttr
   , (gameOverAttr, fg V.red `V.withStyle` V.bold)
   , (enemyAttr, V.magenta `on` V.magenta)
   , (targetAttr, V.cyan `on` V.cyan)
+  , (addLifeAttr, (V.rgbColor 255 192 203) `on` (V.rgbColor 255 192 203))
+  , (slowEnemiesAttr, (V.rgbColor 0 0 255) `on` (V.rgbColor 0 0 255))
   , (successAttr, fg V.green `V.withStyle` V.bold)
   ]
 
@@ -181,4 +189,6 @@ explosionAttr = "explosionAttr"
 emptyAttr     = "emptyAttr"
 enemyAttr     = "enemyAttr"
 successAttr   = "successAttr"
+slowEnemiesAttr   = "slowEnemiesAttr"
+addLifeAttr = "addLifeAttr"
 targetAttr    = "targetAttr"

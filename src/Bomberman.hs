@@ -5,9 +5,10 @@ module Bomberman
   ( initGame
   , Game(..)
   , Direction(..)
+  , PowerUpType(..)
   , step
-  , moveBomberman, getBombLocs, plantBomb
-  , walls, bomberman, brickwalls, bombs, explosions, score, enemies, target, success, lives
+  , moveBomberman, getBombLocs, plantBomb, getPowerUpLocs, getPowerUpLocsOfType
+  , walls, bomberman, brickwalls, bombs, explosions, score, enemies, target, success, lives, powerups
   , height, width
   ) where
 
@@ -27,23 +28,29 @@ import System.Random (getStdRandom, randomR)
 -- Types
 
 data Game = Game
-  { _bomberman      :: Coord        -- ^ bomberman location
-  , _bombs          :: [Bomb]       -- ^ bombs location
-  , _explosions     :: [Coord]      -- ^ explosion locations
-  , _enemies        :: [Coord]      -- ^ enemies locations
-  , _brickwalls     :: [Coord]      -- ^ bricks locations
-  , _walls          :: Seq Coord    -- ^ walls locations
-  , _target         :: Coord        -- ^ Target location
-  , _success        :: Bool         -- ^ success flag
-  , _lives          :: Int          -- ^ remaining lives
-  , _score          :: Int          -- ^ score
-  , _locked         :: Bool         -- ^ lock to disallow duplicate turns between time steps
-  , _moveEnemyTime  :: Int          -- ^ number of ticks after which enemies are moved
-  } deriving (Show)
+  { _bomberman      :: Coord                   -- ^ bomberman location
+  , _bombs          :: [Bomb]                  -- ^ bombs location
+  , _explosions     :: [Coord]                 -- ^ explosion locations
+  , _enemies        :: [Coord]                 -- ^ enemies locations
+  , _brickwalls     :: [Coord]                 -- ^ bricks locations
+  , _powerups       :: [PowerUp]               -- ^ powerup locations
+  , _walls          :: Seq Coord               -- ^ walls locations
+  , _target         :: Coord                   -- ^ Target location
+  , _success        :: Bool                    -- ^ success flag
+  , _lives          :: Int                     -- ^ remaining lives
+  , _score          :: Int                     -- ^ score
+  , _locked         :: Bool                    -- ^ lock to disallow duplicate turns between time steps
+  , _moveEnemyTime  :: Int                     -- ^ number of ticks after which enemies are moved
+  }
 
 type Coord = V2 Int
 
 type Bomb = (Coord, Int)
+
+data PowerUpType = AddLife | SlowEnemies
+  deriving (Eq)
+
+type PowerUp = (Coord, PowerUpType)
 
 data Stream a = a :| Stream a
   deriving (Show)
@@ -69,6 +76,9 @@ initialLoc = (V2 1 1)
 -- Varies between 0 and 1, increasing the value leads to creation of more num. of bricks
 brickDensity :: Double
 brickDensity = 0.1
+
+powerupDensity :: Double
+powerupDensity = 0.01
 
 enemyDensity :: Double
 enemyDensity = 0.03
@@ -124,7 +134,7 @@ getExplosionLocs (V2 x y) = [(V2 x y), (V2 (x-1) y), (V2 x (y-1)), (V2 (x+1) y),
 moveBomberman :: Direction -> Game -> Game
 moveBomberman d g@Game { _bomberman = b } = if ((g ^. lives == 0) || (g ^. success))
                                             then g
-                                            else (g & bomberman %~ (moveDir g d)) & checkSuccess & checkDeath
+                                            else (g & bomberman %~ (moveDir g d)) & checkSuccess & checkDeath & checkPowerUp
 
 moveDir :: Game -> Direction -> Coord -> Coord
 moveDir g d prev
@@ -137,6 +147,41 @@ checkSuccess :: Game -> Game
 checkSuccess g = if ((g ^. bomberman) == (g ^. target))
                  then (g & success .~ True)
                  else g
+
+checkPowerUp :: Game -> Game
+checkPowerUp g = if ((g ^. bomberman) `elem` (getPowerUpLocsOfType g AddLife))
+                 then (applyPowerUp AddLife g) & (powerups %~ (removePowerUp (g ^. bomberman)))
+                 else if ((g ^. bomberman) `elem` (getPowerUpLocsOfType g SlowEnemies))
+                 then (applyPowerUp SlowEnemies g) & (powerups %~ (removePowerUp (g ^. bomberman)))
+                 else g
+
+applyPowerUp :: PowerUpType -> Game -> Game
+applyPowerUp AddLife g     = (g & lives %~ (\x -> (x+1)))
+applyPowerUp SlowEnemies g = (g & moveEnemyTime %~ (\x -> (x + 10)))
+
+removePowerUp :: Coord -> [PowerUp] -> [PowerUp]
+removePowerUp c []         = []
+removePowerUp c ((p, t) : rest) = if (p == c)
+                                  then restPowerups
+                                  else ((p, t) : restPowerups)
+  where
+    restPowerups = removePowerUp c rest
+
+getPowerUpLocs :: Game -> [Coord]
+getPowerUpLocs g = getCoords (g ^. powerups)
+
+getCoords :: [PowerUp] -> [Coord]
+getCoords []             = []
+getCoords ((p, _): rest) = (p: getCoords rest)
+
+getPowerUpLocsOfType :: Game -> PowerUpType -> [Coord]
+getPowerUpLocsOfType g t = getCoordsOfType t (g ^. powerups)
+
+getCoordsOfType :: PowerUpType -> [PowerUp] -> [Coord]
+getCoordsOfType _ [] = []
+getCoordsOfType t ((coord, ty): rest) = if (t == ty) then (coord : restCoords) else restCoords
+  where
+    restCoords = getCoordsOfType t rest
 
 -- Takes current coord, change in x, change in y and checks if obstacle is present at new coords
 checkObstacle :: Game -> Coord -> Int -> Int -> Bool
@@ -176,7 +221,35 @@ genBrick c@(V2 x y) = do
                         else if ((x == 1) && (y==1)) then (return False)
                         else if (randomNum < brickDensity) then (return True)
                         else (return False)
-                          
+
+getPowerups :: IO [PowerUp]
+getPowerups = do
+                list <- genPowerups allCoords
+                return list
+  where
+    allCoords = [(V2 x y) | x <- [0..width-1], y <- [0..height-1]]
+
+genPowerups :: [Coord] -> IO [PowerUp]
+genPowerups []        = (return [])
+genPowerups (a: rest) = do
+                        isPowerup <- (genPowerup a)
+                        restPowerups <- (genPowerups rest)
+                        randomNum <- (drawDouble 0 1)
+                        if isPowerup then 
+                          if (randomNum > 0.5)
+                          then (return ((a, AddLife): restPowerups))
+                          else (return ((a, SlowEnemies): restPowerups))
+                        else
+                          (return restPowerups)
+
+genPowerup :: Coord -> IO Bool
+genPowerup c@(V2 x y) = do
+                        randomNum <- (drawDouble 0 1)
+                        if (checkWall c) then (return False)
+                        else if ((x == 1) && (y == 1)) then (return False)
+                        else if (randomNum < powerupDensity) then (return True)
+                        else (return False)
+
 drawDouble :: Double -> Double  -> IO Double
 drawDouble x y = getStdRandom (randomR (x,y))
 
@@ -303,6 +376,7 @@ drawInt x y = getStdRandom (randomR (x,y))
 initGame :: IO Game
 initGame = do
   let walls = getWalls
+  powerups <- getPowerups
   brickwalls <- getBricks
   enemies <- getEnemy brickwalls
   target <- getTarget
@@ -314,6 +388,7 @@ initGame = do
         , _brickwalls = brickwalls
         , _explosions = []
         , _bombs = []
+        , _powerups = powerups
         , _score  = 0
         , _moveEnemyTime = enemyMovementTime
         , _lives = maxLives
