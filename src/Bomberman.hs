@@ -79,7 +79,7 @@ brickDensity :: Double
 brickDensity = 0.1
 
 powerupDensity :: Double
-powerupDensity = 0.01
+powerupDensity = 0.02
 
 enemyDensity :: Double
 enemyDensity = 0.03

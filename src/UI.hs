@@ -96,7 +96,7 @@ drawComponentGuide =
   $ B.borderWithLabel (str "Component Guide")
   $ C.hCenter
   $ padAll 1
-  $ str $ "Light Blue   - Bomberman\n\
+  $ str $ "Brown        - Bomberman\n\
            \Yellow       - Bricks\n\
            \Purple       - Enemies\n\
            \Cyan         - Target\n\ 
@@ -181,7 +181,7 @@ drawCell SlowEnemiesCell  = withAttr slowEnemiesAttr (str "   ")
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
-  [ (bombermanAttr, V.blue `on` V.blue)
+  [ (bombermanAttr, (V.rgbColor 150 75 0) `on` (V.rgbColor 150 75 0))
   , (wallAttr, V.black `on` V.black)
   , (brickAttr, V.yellow `on` V.yellow)
   , (bombAttr, V.red `on` V.red)
