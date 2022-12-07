@@ -7,7 +7,7 @@ module Bomberman
   , Direction(..)
   , PowerUpType(..)
   , step
-  , moveBomberman, getBombLocs, plantBomb, getPowerUpLocs, getPowerUpLocsOfType
+  , moveBomberman, getBombLocs, plantBomb, getPowerUpLocs, getPowerUpLocsOfType, prop_moveBomberman, prop_killEnemies
   , walls, bomberman, brickwalls, bombs, explosions, score, enemies, target, success, lives, powerups
   , height, width
   ) where
@@ -24,6 +24,7 @@ import Data.Sequence (Seq(..), (<|))
 import qualified Data.Sequence as S
 import Linear.V2 (V2(..), _x, _y)
 import System.Random (getStdRandom, randomR)
+import Test.QuickCheck 
 
 -- Types
 
@@ -41,14 +42,14 @@ data Game = Game
   , _score          :: Int                     -- ^ score
   , _locked         :: Bool                    -- ^ lock to disallow duplicate turns between time steps
   , _moveEnemyTime  :: Int                     -- ^ number of ticks after which enemies are moved
-  }
+  } deriving (Show)
 
 type Coord = V2 Int
 
 type Bomb = (Coord, Int)
 
 data PowerUpType = AddLife | SlowEnemies
-  deriving (Eq)
+  deriving (Eq, Show)
 
 type PowerUp = (Coord, PowerUpType)
 
@@ -236,7 +237,7 @@ genPowerups (a: rest) = do
                         restPowerups <- (genPowerups rest)
                         randomNum <- (drawDouble 0 1)
                         if isPowerup then 
-                          if (randomNum > 0.5)
+                          if (randomNum > 0.75)
                           then (return ((a, AddLife): restPowerups))
                           else (return ((a, SlowEnemies): restPowerups))
                         else
@@ -401,3 +402,53 @@ initGame = do
 
 fromList :: [a] -> Stream a
 fromList = foldr (:|) (error "Streams must be infinite")
+
+-- Property-based Tests
+verifyScoreAndEnemies :: Game -> Int -> [Coord] -> Bool
+verifyScoreAndEnemies newG prevScore prevEnemies = ((newG ^. score) == (prevScore + 10)) && (newG ^. enemies == [])
+
+prop_killEnemies :: Property
+prop_killEnemies = forAll genGame (\g -> do
+                                          let newGame = killEnemies g (g ^. enemies)
+                                          verifyScoreAndEnemies newGame (g ^. score) (g ^. enemies))
+
+verifyCoord :: Coord -> Coord -> Bool
+verifyCoord (V2 x1 y1) (V2 x2 y2) | (x1 == x2) && (y1 == y2) = True
+                                  | otherwise                = False
+
+verifyNewDir :: Game -> Coord -> Coord -> Direction -> Bool
+verifyNewDir g prev@(V2 x y) new d | d == North = if (checkObstacle g prev 0 1) then (verifyCoord new prev) else (verifyCoord new (V2 x (y+1)))
+                                    | d == South = if (checkObstacle g prev 0 (-1)) then (verifyCoord new prev) else (verifyCoord new (V2 x (y-1)))
+                                    | d == East  = if (checkObstacle g prev 1 0) then (verifyCoord new prev) else (verifyCoord new (V2 (x+1) y))
+                                    | d == West  = if (checkObstacle g prev (-1) 0) then (verifyCoord new prev) else (verifyCoord new (V2 (x-1) y))
+
+prop_moveBomberman :: Property
+prop_moveBomberman = forAll genGameDir (\(g, d) -> do
+                                                      let newGame = moveBomberman d g
+                                                      verifyNewDir newGame (g ^. bomberman) (newGame ^. bomberman) d)
+
+genGameDir :: Gen(Game, Direction)
+genGameDir = do
+              g <- genGame
+              dir <- Test.QuickCheck.elements [North, South, East, West]
+              return (g, dir)
+
+genGame :: Gen (Game)
+genGame = do
+            x <- choose (0, 50)
+            y <- choose (0, 50)
+            return Game
+                    { _bomberman  = initialLoc
+                    , _walls  = getWalls
+                    , _brickwalls = []
+                    , _explosions = (getExplosionLocs (V2 x y))
+                    , _bombs = []
+                    , _powerups = []
+                    , _score  = 0
+                    , _moveEnemyTime = enemyMovementTime
+                    , _lives = maxLives
+                    , _success = False
+                    , _locked = False
+                    ,_enemies = [(V2 x y)]
+                    ,_target = initialLoc
+                    }
