@@ -84,10 +84,30 @@ drawUI g =
   [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g <+> drawGuide ]
 
 drawGuide :: Widget Name
-drawGuide =
+drawGuide = hLimit 35
+  $ vBox [ drawControlsGuide
+         , padTop (Pad 2) $ drawComponentGuide
+         ]
+
+drawComponentGuide :: Widget Name
+drawComponentGuide =
   hLimit 35
   $ withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str "Guide")
+  $ B.borderWithLabel (str "Component Guide")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ "Light Blue   - Bomberman\n\
+           \Yellow       - Bricks\n\
+           \Purple       - Enemies\n\
+           \Cyan         - Target\n\ 
+           \Pink Powerup - Extra Life\n\
+           \Blue Powerup - Freeze Enemies"
+
+drawControlsGuide :: Widget Name
+drawControlsGuide =
+  hLimit 35
+  $ withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "Control Guide")
   $ C.hCenter
   $ padAll 1
   $ str $ "Move Up    - Up arrow\n\
@@ -96,12 +116,10 @@ drawGuide =
            \Move Right - Right arrow\n\
            \Plant Bomb - b key\n\
            \Quit Game  - q/esc key\n\
-           \Reset Game - r key\n\
-           \Pink Powerup - Extra Life\n\
-           \Blue Powerup - Freeze Enemies"
+           \Reset Game - r key"
 
 drawStats :: Game -> Widget Name
-drawStats g = hLimit 11
+drawStats g = hLimit 20
   $ vBox [ drawScore (g ^. score)
          , padTop (Pad 2) $ drawGameOver g
          , padTop (Pad 2) $ drawLives g
@@ -120,7 +138,7 @@ drawGameOver g =
      then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
   else if (g ^. success)
      then withAttr successAttr $ C.hCenter $ str "YOU WON"
-  else emptyWidget
+  else withAttr initialAttr $ C.hCenter $ str "REACH TARGET TO WIN"
 
 drawLives :: Game -> Widget Name
 drawLives g = withBorderStyle BS.unicodeBold
@@ -170,6 +188,7 @@ theMap = attrMap V.defAttr
   , (explosionAttr, V.white `on` V.white)
   , (emptyAttr, V.green `on` V.green)
   , (gameOverAttr, fg V.red `V.withStyle` V.bold)
+  , (initialAttr, fg V.yellow `V.withStyle` V.bold)
   , (enemyAttr, V.magenta `on` V.magenta)
   , (targetAttr, V.cyan `on` V.cyan)
   , (addLifeAttr, (V.rgbColor 255 192 203) `on` (V.rgbColor 255 192 203))
@@ -189,6 +208,7 @@ explosionAttr = "explosionAttr"
 emptyAttr     = "emptyAttr"
 enemyAttr     = "enemyAttr"
 successAttr   = "successAttr"
+initialAttr   = "initialAttr"
 slowEnemiesAttr   = "slowEnemiesAttr"
 addLifeAttr = "addLifeAttr"
 targetAttr    = "targetAttr"
